@@ -31,20 +31,24 @@ void radio_init(void){
     write(0x12, 0x00);  // turn temp sensor off
      
     // I don't really know what the next block does but it seems harmless enough.
-    write(0x1C, 0x1D);  // IF filter bandwidth
+    write(0x1C, 0x81    );  // IF filter bandwidth -- also 0x1D
     write(0x1D, 0x40);  // AFC loop
-    write(0x20, 0xA1);      // clock recovery
-    write(0x21, 0x20);      // clock recovery
-    write(0x22, 0x4E);      // clock recovery
-    write(0x23, 0xA5);      // clock recovery
-    write(0x24, 0x00);      // clock recovery timing
-    write(0x25, 0x0A);      // clock recovery timing
+    write(0x20, 0x78);      // clock recovery -- also 0xA1
+    write(0x21, 0x01);      // clock recovery -- also 0x20
+    write(0x22, 0x11);      // clock recovery -- also 0x4E
+    write(0x23, 0x11);      // clock recovery -- also 0xA5
+    write(0x24, 0x01);      // clock recovery timing -- also 0x00
+    write(0x25, 0x13);      // clock recovery timing -- also 0x0A
 
-    write(0x2C, 0b00000111);    // OOK counter value MSBs
-    write(0x3D, 0xFF);      // OOK counter values LSBs
+    write(0x2C, 0x28);    // OOK counter value MSBs
+    write(0x2D, 0x0C);      // OOK counter value LSBs
+    write(0x2E, 0x28);      
+    write(0x1F, 0x03);      // ** writing to reserved? clocl recovery gearshift override
 
-    write(0x6E, 0x27);      // TX data rate 1
-    write(0x6F, 0x52);      // TX data rate 0
+    write(0x69, 0x60);      // AGC override 1
+
+    write(0x6E, 0x19);      // TX data rate 1
+    write(0x6F, 0x9A);      // TX data rate 0
 
     write(0x30, 0x00);      // turning off packet handling
 
@@ -53,13 +57,15 @@ void radio_init(void){
     write(0x34, 0x00);      // preamble length = 0 (same as 1 nibble = 4 bits)
     write(0x35, 0b00001010);    // set preamble detection threshold to 1 nibble (min), set RSSI offset to default +8 dB
 
+    write(0x58, 0xC0);      // ?? also reserved
 
     write(0x6D, 0x07);      // maximize Tx power
+
     write(0x79, 0x00);      // no frequency hopping
     write(0x7A, 0x00);      // no frequency hopping
     
     // Modulation control
-    write(0x70, 0x20);    // Data rate below 30 kbps. Manchester, data whitening off
+    write(0x70, 0x0C);    // Data rate below 30 kbps. Manchester, data whitening off
     write(0x71, 0x91);    // Tx Data CLK via SDO, Modulation via SDI, no inversion, OOK
     // 0x72 is for frequency deviation -- seems only relevant for FSK -- skipping?
     // Same for 0x73, 0x74 - frequency offset
@@ -77,12 +83,10 @@ void transmit(void){
 
     char ch = read(0x02);
 
-
     gpio_set_function(GPIO_PIN10, GPIO_FUNC_OUTPUT);
     //gpio_set_function(GPIO_PIN9, GPIO_FUNC_INPUT);
     //gpio_set_pullup(GPIO_PIN9);
     //gpio_set_function(GPIO_PIN8, GPIO_FUNC_OUTPUT);
-
 
     timer_wait_for(10000);
     
@@ -123,7 +127,12 @@ void transmit(void){
 void receive(void){
    
     write(0x07, 0x05);      // to RX mode
-   
+
+    timer_wait_for(10000);
+
+    gpio_set_function(GPIO_PIN10, GPIO_FUNC_INPUT);
+//    gpio_set_function(GPIO_PIN9, GPIO_FUNC_INPUT);
+
     while(1){
         
         while(!gpio_pin_read(GPIO_PIN9)){
@@ -141,6 +150,17 @@ void receive(void){
 
 }
 
+void check_rssi(void){
+    write(0x07, 0x05);
+    timer_wait_for(10000);
+
+    unsigned char ch = read(0x02);
+    while(1){
+        uart_putc('0' + ch);
+        uart_putc('\n');
+    }
+
+}
 
 void notmain(void){
     gpio_init();
@@ -157,8 +177,9 @@ void notmain(void){
 
     timer_wait_for(1000);
 
- //   receive();
-    transmit();
+     receive();
+ //   transmit();
+ //   check_rssi();
 
     unsigned char ch = read(0x71);
 

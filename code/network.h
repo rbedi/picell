@@ -7,4 +7,15 @@
 #include "utils.h"
 #include "spi.h"
 
+void write(char reg, char data);
+unsigned char read(char reg);
+void radio_init(void);
+void transmit_preamble(unsigned repeat);
+void send_zero();
+void send_one();
+void transmit(void);
+void receive(void);
+void print_rssi(void);
+int check_rssi(void);
+
 void notmain(void);

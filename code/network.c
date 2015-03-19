@@ -1,6 +1,6 @@
 #include "network.h"
 
-#define TRANSMIT 0
+#define TRANSMIT 1 
 
 // reg: 7-bit register to write into
 // data: byte of data to write
@@ -84,34 +84,24 @@ void radio_init(void){
 void transmit_preamble(unsigned repeat){
     int i;
     for(i = 0; i < repeat; i++){
-        send_zero();
-        send_one();
+        send_bit(0);
+        send_bit(1);
     }
 }
 
-void send_zero(){
+void send_bit(int bit){
     while(!gpio_pin_read(GPIO_PIN9)){
         // do nothing while low
     }
-    gpio_pin_write(GPIO_PIN10, 0);
+    gpio_pin_write(GPIO_PIN10, bit);
 
     while(gpio_pin_read(GPIO_PIN9)){
         // do nothing while high
     }
 }
 
-void send_one(){
-    while(!gpio_pin_read(GPIO_PIN9)){
-        // do nothing while low
-    }
-    gpio_pin_write(GPIO_PIN10, 1);
-
-    while(gpio_pin_read(GPIO_PIN9)){
-        // do nothing while high
-    }
-}
-
-void transmit(void){
+void transmit(char to_send){
+    
     write(0x07, 0x09);      // to TX mode
     timer_wait_for(10000);  // wait 10 ms
 
@@ -128,109 +118,53 @@ void transmit(void){
     // as per the manual. Contacted them by phone and email, have not heard back yet. 
     transmit_preamble(20);
 
-    while(1){
-
-            while(!gpio_pin_read(GPIO_PIN9)){
-                // do nothing while low
-            }
-            gpio_pin_write(GPIO_PIN10, 0);
-
-            while(gpio_pin_read(GPIO_PIN9)){
-                // do nothing while high
-            }
-
-
-            while(!gpio_pin_read(GPIO_PIN9)){
-                // do nothing while low
-            }
-            gpio_pin_write(GPIO_PIN10, 1);
-
-            while(gpio_pin_read(GPIO_PIN9)){
-                // do nothing while high
-            }
-
-
-            while(!gpio_pin_read(GPIO_PIN9)){
-                // do nothing while low
-            }
-            gpio_pin_write(GPIO_PIN10, 1);
-            
-            while(gpio_pin_read(GPIO_PIN9)){
-                // do nothing while high
-            }
-
-    } 
+    int i;
+    for(i = 0; i < 8; i++){
+        int bit_to_send = to_send & 0x1; 
+        if(bit_to_send){
+            send_bit(0);
+            send_bit(1);
+            send_bit(1);
+        }
+        else{
+            send_bit(1);
+            send_bit(0);
+            send_bit(0);
+        }
+        to_send = to_send >> 1;       
+    }
 
     spi_init(0,0);          // Re-initialize
     timer_wait_for(10000);  // Wait for re-initialization for 10 ms
     write(0x07, 0x01);      // to ready mode
+
 }
 
 void receive(void){
 
     write(0x07, 0x05);      // to RX mode
+    timer_wait_for(10000);  // wait for 10 ms
 
-    timer_wait_for(10000);
-
+    // set pin 10 to input
     gpio_set_function(GPIO_PIN10, GPIO_FUNC_INPUT);
-    //gpio_set_function(GPIO_PIN26, GPIO_FUNC_INPUT);
-
-    //gpio_set_function(GPIO_PIN9, GPIO_FUNC_INPUT);
-    unsigned nsel = gpio_pin_read(GPIO_PIN8);
-
-
-    int bits_received = 0;
-    int counter[2];
-
-    int i;
-
+    
+    // record start time of transmission
     unsigned cur_time = timer_gettime();
 
-
-    while(timer_gettime() - cur_time < 2000000){
-   // for(i=1; i < 10000; i++){
-         
-        while(!gpio_pin_read(GPIO_PIN26)){
+    while(1){
+        while(!gpio_pin_read(GPIO_PIN9)){
             // do nothing while low
         }     
-        
         unsigned int cur_bit = gpio_pin_read(GPIO_PIN10);
-
-
-        
-        while(gpio_pin_read(GPIO_PIN26)){
+        uart_putc('0' + cur_bit);
+        while(gpio_pin_read(GPIO_PIN9)){
             // do nothing while high
         }
     }
 
-
+    // record end time of transmission
     cur_time = timer_gettime();
 
-
-    while(timer_gettime() - cur_time < 2000000){
-   // for(i=1; i < 10000; i++){
-         
-        while(!gpio_pin_read(GPIO_PIN26)){
-            // do nothing while low
-        }     
-        
-        unsigned int cur_bit = gpio_pin_read(GPIO_PIN10);
-        //uart_putc('a' + cur_bit);
-        //uart_putc('\n');
-
-        counter[cur_bit] += 1;
-
-        // uart_putc('a' + gpio_pin_read(GPIO_PIN10));
-        // uart_putc('\n');
-        
-        while(gpio_pin_read(GPIO_PIN26)){
-            // do nothing while high
-        }
-    }
-    while(1){
-        printf("%d %d\n", counter[0], counter[1]);
-        timer_wait_for(1000000);
-    }
 }
 
 void print_rssi(void){
@@ -246,6 +180,12 @@ int check_rssi(void){
     int RSSI_val = (int)ch;
     
     return RSSI_val;
+}
+
+void transmit_test(){
+    while(1){
+        transmit(0xFF);
+    }
 }
 
 void notmain(void){
@@ -265,11 +205,12 @@ void notmain(void){
     // Pause for 1 millisecond
     timer_wait_for(1000);
 
-
     if(TRANSMIT){
-        transmit();
+        transmit_test();
     }
-    receive();
+    else{ 
+        receive();
+    }
 
     return;
 }

@@ -26,3 +26,8 @@ PiCell is a library for using the RFM22B radio transceiver to send and receive m
 * While I did not end up implementing CDMA, I learned a lot about it - and implemented a wired CDMA simulator (concerned that the radio would not work at all...).
 * SPI (using a library Harry wrote) 
 * How to debug a hardware/software setup with so many parts that could be independently failing.
+
+## Acknowledgements
+* Phil & Pat for lots of help with various parts of the project, and the use of much hardware!
+* Harry, for use of the SPI library and helping me try to figure things out with the oscilloscope last minute
+* Omar, for the use of his SDR

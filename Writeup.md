@@ -2,6 +2,8 @@
 
 PiCell is a library for using the RFM22B radio transceiver to send and receive messages. While the original goal was a bit more ambitious (involving implementing CDMA on top of this radio stack), the more basic goal of communicating between RFM22Bs was achieved. I used On-Off-Keying, and the "Direct Mode" of the radios, which presented one of the biggest (unexpected) challenges of the project -- getting these radios, which are generally intended for FIFO use where software on the radios handles packets for you, to allow me to directly stream bits over to be sent without additional shenanigans. The library as it stands right now allows you to send and receive bytes with a single library call -- it uses a slightly less efficient variant of Manchester Encoding (1 = 110, 0 = 001) to encode bits before sending them, necessary for systems that use On-Off Keying. 
 
+Here is a picture of my [hardware radio set-up](http://i.imgur.com/FHIP5co.jpg) (well, one of them...). 
+
 Relevant files with most of the software: network.c, network.h
 
 Used SPI functionality from Harry Johnson (spi.c, spi.h)

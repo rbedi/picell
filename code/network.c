@@ -1,22 +1,28 @@
 #include "network.h"
 
+#define TRANSMIT 0
+
+// reg: 7-bit register to write into
+// data: byte of data to write
 void write(char reg, char data){
     reg |= 0x80;    // adds 1 to MSB to indicate write mode
-
     unsigned char out[2] = {reg, data};
     unsigned char in[2];
     transfer_bytes(out, in, 2, 0);
 
 }
 
+// reg: 7-bit register to read from
+// Returns data stored in register. 
 unsigned char read(char reg){
-    reg &= 0x7F;
+    reg &= 0x7F;    // ensures MSB is 0 to indicate read mode
     unsigned char out[2] = {reg, 0xFF};
     unsigned char in[2];
     transfer_bytes(out, in, 2, 0);
     return in[1];
 }
 
+// RFM 22B radio initialization.
 void radio_init(void){
     
     write(0x05, 0x00);      // disable all interrupts
@@ -52,9 +58,9 @@ void radio_init(void){
     write(0x30, 0x00);      // turning off packet handling
 
     // Need to set preamble detection control, even for direct modulation.
-    write(0x33, 0b10000000);    // set Skipsyn to on (to skip sync word), no header
-    write(0x34, 0x00);          // preamble length = 0 (same as 1 nibble = 4 bits)
-    write(0x35, 0b00001010);    // set preamble detection threshold to 1 nibble (min), set RSSI offset to default +8 dB
+    write(0x33, 0x80);      // set Skipsyn to on (to skip sync word), no header
+    write(0x34, 0x00);      // preamble length = 0 (same as 1 nibble = 4 bits)
+    write(0x35, 0x0A);      // set preamble detection threshold to 1 nibble (min), set RSSI offset to default +8 dB
 
     write(0x58, 0x80);      // Reserved register
 
@@ -76,48 +82,51 @@ void radio_init(void){
 }
 
 void transmit_preamble(unsigned repeat){
-
     int i;
     for(i = 0; i < repeat; i++){
-
-        while(!gpio_pin_read(GPIO_PIN9)){
-            // do nothing while low
-        }
-        gpio_pin_write(GPIO_PIN10, 0);
-
-        while(gpio_pin_read(GPIO_PIN9)){
-            // do nothing while high
-        }
-
-        while(!gpio_pin_read(GPIO_PIN9)){
-            // do nothing while low
-        }
-        gpio_pin_write(GPIO_PIN10, 1);
-
-        while(gpio_pin_read(GPIO_PIN9)){
-            // do nothing while high
-        }
-
+        send_zero();
+        send_one();
     }
+}
 
+void send_zero(){
+    while(!gpio_pin_read(GPIO_PIN9)){
+        // do nothing while low
+    }
+    gpio_pin_write(GPIO_PIN10, 0);
+
+    while(gpio_pin_read(GPIO_PIN9)){
+        // do nothing while high
+    }
+}
+
+void send_one(){
+    while(!gpio_pin_read(GPIO_PIN9)){
+        // do nothing while low
+    }
+    gpio_pin_write(GPIO_PIN10, 1);
+
+    while(gpio_pin_read(GPIO_PIN9)){
+        // do nothing while high
+    }
 }
 
 void transmit(void){
     write(0x07, 0x09);      // to TX mode
+    timer_wait_for(10000);  // wait 10 ms
 
-    timer_wait_for(10000);
+    char ch = read(0x02);   // read and print current status byte
+    printf("Current status: %d\n", (int)ch);
 
-    char ch = read(0x02);
-
+    // Set pin 10 as data modulation line.
+    // Pin 9 being used as radio-defined clock line.
     gpio_set_function(GPIO_PIN10, GPIO_FUNC_OUTPUT);
-    //gpio_set_function(GPIO_PIN9, GPIO_FUNC_INPUT);
-    //gpio_set_pullup(GPIO_PIN9);
-    //gpio_set_function(GPIO_PIN8, GPIO_FUNC_OUTPUT);
-
     timer_wait_for(10000);
     
+    // Need to transmit a preamble of 1s and 0s to make the RFM22B start receiving.
+    // Need to contact manufacturer (HopeRF) in China to find a way to disable this,
+    // as per the manual. Contacted them by phone and email, have not heard back yet. 
     transmit_preamble(20);
-
 
     while(1){
 
@@ -152,15 +161,12 @@ void transmit(void){
 
     } 
 
-    spi_init(0,0);
-    
-    timer_wait_for(10000);
-
+    spi_init(0,0);          // Re-initialize
+    timer_wait_for(10000);  // Wait for re-initialization for 10 ms
     write(0x07, 0x01);      // to ready mode
 }
 
 void receive(void){
-
 
     write(0x07, 0x05);      // to RX mode
 
@@ -259,10 +265,11 @@ void notmain(void){
     // Pause for 1 millisecond
     timer_wait_for(1000);
 
-    receive();
- //    transmit();
- //   check_rssi();
 
+    if(TRANSMIT){
+        transmit();
+    }
+    receive();
 
     return;
 }

@@ -1,6 +1,7 @@
 #include "network.h"
 
-#define TRANSMIT 1 
+#define TRANSMIT        1 
+#define USE_RX_CLOCK    0
 
 // reg: 7-bit register to write into
 // data: byte of data to write
@@ -81,6 +82,27 @@ void radio_init(void){
 
 }
 
+unsigned clock_offset(unsigned samples){
+
+    int i;
+    unsigned time_start;
+    unsigned time_end;
+
+    time_start = timer_gettime();
+    for(i = 0; i < samples; i++){
+        while(!gpio_pin_read(GPIO_PIN9)){
+            // do nothing while low
+        }     
+        while(gpio_pin_read(GPIO_PIN9)){
+            // do nothing while high
+        }
+        
+    }
+    time_end = timer_gettime();
+
+    return ((time_start - time_end) / samples);
+}
+
 void transmit_preamble(unsigned repeat){
     int i;
     for(i = 0; i < repeat; i++){
@@ -151,17 +173,31 @@ void receive(void){
     // record start time of transmission
     unsigned cur_time = timer_gettime();
 
-    while(1){
-        while(!gpio_pin_read(GPIO_PIN9)){
-            // do nothing while low
-        }     
-        unsigned int cur_bit = gpio_pin_read(GPIO_PIN10);
-        uart_putc('0' + cur_bit);
-        while(gpio_pin_read(GPIO_PIN9)){
-            // do nothing while high
+    if(USE_RX_CLOCK){
+
+        while(1){
+            while(!gpio_pin_read(GPIO_PIN9)){
+                // do nothing while low
+            }     
+            unsigned int cur_bit = gpio_pin_read(GPIO_PIN10);
+            uart_putc('0' + cur_bit);
+            while(gpio_pin_read(GPIO_PIN9)){
+                // do nothing while high
+            }
         }
+
     }
 
+    else{
+
+        unsigned time_to_wait = clock_offset(20);
+        while(1){
+            timer_wait_for(time_to_wait);
+            unsigned int cur_bit = gpio_pin_read(GPIO_PIN10);
+            uart_putc('0' + cur_bit);
+        } 
+
+    }
     // record end time of transmission
     cur_time = timer_gettime();
 

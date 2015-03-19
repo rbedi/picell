@@ -22,7 +22,7 @@ PiCell is a library for using the RFM22B radio transceiver to send and receive m
 ## Cool things I learned in the process
 * How to use a logic analyzer! Such a neat tool.
 * (With help from Harry), how to use an oscilloscope
-* FSK, OOK, ASK -- all the different ways radios transmit things
+* FSK, OOK, ASK -- all the different ways radios transmit things, and all of the things radios are capable of doing in hardware and software to improve their transmissions.
 * While I did not end up implementing CDMA, I learned a lot about it - and implemented a wired CDMA simulator (concerned that the radio would not work at all...).
 * SPI (using a library Harry wrote) 
 * How to debug a hardware/software setup with so many parts that could be independently failing.
